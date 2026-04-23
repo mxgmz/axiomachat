@@ -7,8 +7,9 @@ from pathlib import Path
 from flask import Flask, jsonify, request, send_from_directory
 from flask_cors import CORS
 
-# ── Load BM25 index once at startup ──────────────────────────────────────────
-_DIR = Path(__file__).parent.parent / "viva_data" / "rag_index"
+# ── Absolute paths (safe in any working directory) ────────────────────────────
+_BASE = Path(__file__).parent.parent
+_DIR  = _BASE / "viva_data" / "rag_index"
 
 with open(_DIR / "chunks.json", encoding="utf-8") as f:
     _CHUNKS = json.load(f)
@@ -26,7 +27,7 @@ SYSTEM_PROMPT = (
 )
 
 # ── Flask app ─────────────────────────────────────────────────────────────────
-app = Flask(__name__, static_folder="../public", static_url_path="")
+app = Flask(__name__, static_folder=str(_BASE / "public"), static_url_path="")
 CORS(app)
 
 
