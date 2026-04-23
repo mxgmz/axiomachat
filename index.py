@@ -1,22 +1,22 @@
 import json
 import os
-import pickle
 import re
 from pathlib import Path
 
 from flask import Flask, Response, jsonify, request
 from flask_cors import CORS
+from rank_bm25 import BM25Okapi
 
 # ── Paths ─────────────────────────────────────────────────────────────────────
 _BASE = Path(__file__).parent
 _DIR  = _BASE / "viva_data" / "rag_index"
 _HTML = (_BASE / "public" / "index.html").read_text(encoding="utf-8")
 
-# ── Load BM25 index once at startup ──────────────────────────────────────────
+# ── Load chunks and rebuild BM25 at startup (avoids pickle version issues) ───
 with open(_DIR / "chunks.json", encoding="utf-8") as f:
     _CHUNKS = json.load(f)
-with open(_DIR / "bm25.pkl", "rb") as f:
-    _BM25 = pickle.load(f)
+
+_BM25 = BM25Okapi([re.findall(r"[a-záéíóúüñ]+", c["text"].lower()) for c in _CHUNKS])
 
 SYSTEM_PROMPT = (
     "Eres el asistente de Recursos Humanos de Axioma, empresa de arquitectura y "
@@ -74,6 +74,11 @@ def _llm_answer(query: str, hits: list[dict]) -> str:
         return resp.choices[0].message.content
 
     return "⚠️ Configura ANTHROPIC_API_KEY o OPENAI_API_KEY en las variables de entorno de Vercel."
+
+
+@app.route("/health")
+def health():
+    return jsonify({"chunks": len(_CHUNKS), "status": "ok"})
 
 
 @app.route("/")
