@@ -17,13 +17,14 @@ load_dotenv()
 
 client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
 
-EMBED_MODEL = "text-embedding-3-small"
-EMBED_DIM   = 1536
+EMBED_MODEL    = "text-embedding-3-small"
+EMBED_DIM      = 1536
 KNOWLEDGE_BASE = Path("viva_data/processed/knowledge_base.jsonl")
-OUT_DIR = Path("viva_data/rag_index")
-CHUNK_SIZE    = 1800
-CHUNK_OVERLAP = 200
-BATCH_SIZE    = 50
+PEOPLE_FILE    = Path("viva_data/people.json")
+OUT_DIR        = Path("viva_data/rag_index")
+CHUNK_SIZE     = 1800
+CHUNK_OVERLAP  = 200
+BATCH_SIZE     = 50
 
 
 def chunk_text(text: str) -> list[str]:
@@ -64,6 +65,42 @@ def main():
     print(f"Records: {len(records)}")
 
     chunks_text, chunks_meta = [], []
+
+    # ── People directory ──────────────────────────────────────────────────────
+    if PEOPLE_FILE.exists():
+        with open(PEOPLE_FILE, encoding="utf-8") as f:
+            people = json.load(f)
+        print(f"People: {len(people)}")
+        for p in people:
+            if not p.get("name") or not p.get("active"):
+                continue
+            lines = [f"[DIRECTORIO | {p.get('department','') or 'Axioma'} | Axioma]",
+                     f"Nombre: {p['name']}"]
+            if p.get("job_title"):   lines.append(f"Puesto: {p['job_title']}")
+            if p.get("department"):  lines.append(f"Departamento: {p['department']}")
+            if p.get("email"):       lines.append(f"Email: {p['email']}")
+            if p.get("mobile"):      lines.append(f"Móvil: {p['mobile']}")
+            if p.get("work_phone"):  lines.append(f"Teléfono trabajo: {p['work_phone']}")
+            if p.get("location"):    lines.append(f"Ubicación: {p['location']}")
+            if p.get("expertise"):   lines.append(f"Expertise: {p['expertise']}")
+            text = "\n".join(lines)
+            chunks_text.append(text)
+            chunks_meta.append({
+                "record_id":      f"person_{p['id']}",
+                "category":       "directorio",
+                "group":          "directorio",
+                "date":           "",
+                "year":           0,
+                "freshness_tier": "current",
+                "is_time_sensitive": False,
+                "author":         p["name"],
+                "summary":        f"{p.get('job_title','')} — {p.get('department','')}",
+                "message_url":    p.get("profile_url", ""),
+                "chunk_index":    0,
+                "text":           text,
+            })
+
+    # ── Viva Engage threads ───────────────────────────────────────────────────
     for rec in records:
         content = rec.get("content", "").strip()
         summary = rec.get("summary") or ""
