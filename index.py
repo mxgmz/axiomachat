@@ -1,22 +1,23 @@
 import json
 import os
-import re
+import numpy as np
+import faiss
 from pathlib import Path
 
 from flask import Flask, Response, jsonify, request
 from flask_cors import CORS
-from rank_bm25 import BM25Okapi
+from openai import OpenAI
 
 # ── Paths ─────────────────────────────────────────────────────────────────────
 _BASE = Path(__file__).parent
 _DIR  = _BASE / "viva_data" / "rag_index"
 _HTML = (_BASE / "index.html").read_text(encoding="utf-8")
 
-# ── Load chunks and rebuild BM25 at startup (avoids pickle version issues) ───
+# ── Load FAISS index + chunks ─────────────────────────────────────────────────
 with open(_DIR / "chunks.json", encoding="utf-8") as f:
     _CHUNKS = json.load(f)
 
-_BM25 = BM25Okapi([re.findall(r"[a-záéíóúüñ]+", c["text"].lower()) for c in _CHUNKS])
+_INDEX = faiss.read_index(str(_DIR / "index.faiss"))
 
 SYSTEM_PROMPT = (
     "Eres el asistente de Recursos Humanos de Axioma, empresa de arquitectura y "
@@ -32,14 +33,14 @@ app = Flask(__name__)
 CORS(app)
 
 
-def _tokenize(text: str) -> list[str]:
-    return re.findall(r"[a-záéíóúüñ]+", text.lower())
-
-
 def _retrieve(query: str, top_k: int = 10) -> list[dict]:
-    scores = _BM25.get_scores(_tokenize(query))
-    top = sorted(range(len(scores)), key=lambda i: scores[i], reverse=True)[:top_k]
-    return [_CHUNKS[i] for i in top if scores[i] > 0]
+    openai_key = os.environ.get("OPENAI_API_KEY", "")
+    client = OpenAI(api_key=openai_key)
+    resp = client.embeddings.create(model="text-embedding-3-small", input=[query])
+    vec = np.array([resp.data[0].embedding], dtype="float32")
+    faiss.normalize_L2(vec)
+    _, indices = _INDEX.search(vec, top_k)
+    return [_CHUNKS[i] for i in indices[0] if i >= 0]
 
 
 def _llm_answer(query: str, hits: list[dict]) -> str:

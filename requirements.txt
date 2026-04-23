@@ -1,6 +1,7 @@
 flask
 flask-cors
-rank_bm25
+faiss-cpu
+numpy
 anthropic
 openai
 requests
