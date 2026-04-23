@@ -298,6 +298,8 @@
     return wrap;
   }
 
+  const history = [];   // [{role, content}] — last 6 turns max
+
   async function send() {
     const query = input.value.trim();
     if (!query || btn.disabled) return;
@@ -313,11 +315,17 @@
       const res = await fetch('/api/chat', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ query }),
+        body: JSON.stringify({ query, history }),
       });
       const data = await res.json();
       typing.remove();
-      addBubble('bot', data.answer || data.error, data.sources);
+      const answer = data.answer || data.error;
+      addBubble('bot', answer, data.sources);
+
+      // Keep last 6 turns (3 user + 3 assistant)
+      history.push({ role: 'user', content: query });
+      history.push({ role: 'assistant', content: answer });
+      if (history.length > 12) history.splice(0, 2);
     } catch (err) {
       typing.remove();
       addBubble('bot', 'Error al conectar con el servidor. Intenta de nuevo.');

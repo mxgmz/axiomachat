@@ -43,12 +43,15 @@ def _retrieve(query: str, top_k: int = 10) -> list[dict]:
     return [_CHUNKS[i] for i in indices[0] if i >= 0]
 
 
-def _llm_answer(query: str, hits: list[dict]) -> str:
+def _llm_answer(query: str, hits: list[dict], history: list[dict]) -> str:
     context = "\n\n---\n\n".join(
         f"[Fuente {i} — {h['category']} | {h['group']} | {h['date']}]\n{h['text']}"
         for i, h in enumerate(hits, 1)
     )
-    messages = [{"role": "user", "content": f"Contexto:\n{context}\n\nPregunta: {query}"}]
+    # History (previous turns) + current question with retrieved context
+    messages = list(history) + [
+        {"role": "user", "content": f"Contexto relevante:\n{context}\n\nPregunta: {query}"}
+    ]
 
     anthropic_key = os.environ.get("ANTHROPIC_API_KEY", "")
     openai_key    = os.environ.get("OPENAI_API_KEY", "")
@@ -65,7 +68,6 @@ def _llm_answer(query: str, hits: list[dict]) -> str:
         return resp.content[0].text
 
     if openai_key:
-        from openai import OpenAI
         client = OpenAI(api_key=openai_key)
         resp = client.chat.completions.create(
             model="gpt-4o-mini",
@@ -102,8 +104,10 @@ def chat():
             "sources": [],
         })
 
+    history = [m for m in (data.get("history") or []) if m.get("role") in ("user", "assistant")][-12:]
+
     try:
-        answer = _llm_answer(query, hits)
+        answer = _llm_answer(query, hits, history)
     except Exception as e:
         answer = f"Error al generar respuesta: {e}"
 
