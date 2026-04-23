@@ -10,7 +10,7 @@ from rank_bm25 import BM25Okapi
 # ── Paths ─────────────────────────────────────────────────────────────────────
 _BASE = Path(__file__).parent
 _DIR  = _BASE / "viva_data" / "rag_index"
-_HTML = (_BASE / "public" / "index.html").read_text(encoding="utf-8")
+_HTML = (_BASE / "index.html").read_text(encoding="utf-8")
 
 # ── Load chunks and rebuild BM25 at startup (avoids pickle version issues) ───
 with open(_DIR / "chunks.json", encoding="utf-8") as f:
