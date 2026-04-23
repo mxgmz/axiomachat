@@ -171,14 +171,12 @@ def _tool_search_people(query: str) -> str:
     return "\n\n".join(lines)
 
 
-def _tool_get_recent_viva_posts(days: int = 7, group_name: str = "") -> str:
+def _tool_get_recent_viva_posts(days: int = 7, group_name: str = "") -> tuple[str, list[dict]]:
     token = os.environ.get("YAMMER_TOKEN", "")
     if not token:
-        return "Token de Viva Engage no configurado."
+        return "Token de Viva Engage no configurado.", []
 
-    days  = min(max(int(days), 1), 30)
-    since = int(time.time()) - days * 86400
-
+    days = min(max(int(days), 1), 30)
     headers = {
         "Authorization": f"Bearer {token}",
         "Accept": "application/json",
@@ -186,49 +184,95 @@ def _tool_get_recent_viva_posts(days: int = 7, group_name: str = "") -> str:
     }
 
     try:
-        url = "https://www.yammer.com/api/v1/messages.json"
-        r   = requests.get(url, headers=headers, timeout=15)
+        r = requests.get(
+            "https://www.yammer.com/api/v1/messages.json",
+            headers=headers, timeout=15
+        )
         if r.status_code != 200:
-            return f"Error al consultar Viva Engage: HTTP {r.status_code}"
+            return f"Error al consultar Viva Engage: HTTP {r.status_code}", []
 
-        data     = r.json()
-        messages = data.get("messages", [])
+        all_msgs = r.json().get("messages", [])
 
-        posts = []
-        for m in messages:
-            created = m.get("created_at", "")
-            body    = (m.get("body") or {}).get("plain", "").strip()
-            sender  = m.get("sender_name", "")
-            group   = m.get("group_name", "") or ""
-
+        # Group by thread_id: first message in each thread = post, rest = replies
+        threads: dict[int, dict] = {}
+        for m in all_msgs:
+            body = (m.get("body") or {}).get("plain", "").strip()
             if not body:
                 continue
-            if group_name and group_name.lower() not in group.lower():
+            grp = m.get("group_name") or ""
+            if group_name and group_name.lower() not in grp.lower():
                 continue
+            tid = m.get("thread_id") or m.get("id")
+            if tid not in threads:
+                threads[tid] = {
+                    "date":    (m.get("created_at") or "")[:10],
+                    "group":   grp,
+                    "sender":  m.get("sender_name", ""),
+                    "body":    body,
+                    "url":     m.get("web_url", "") or m.get("url", ""),
+                    "replies": [],
+                }
+            else:
+                threads[tid]["replies"].append({
+                    "sender": m.get("sender_name", ""),
+                    "body":   body[:200],
+                })
 
-            date_str = created[:10] if created else ""
-            posts.append(f"[{date_str} | {group} | {sender}]\n{body[:400]}")
+        if not threads:
+            return f"No se encontraron publicaciones recientes en los últimos {days} días.", []
 
-        if not posts:
-            return f"No se encontraron publicaciones recientes en los últimos {days} días."
+        text_parts, sources = [], []
+        for tid, t in list(threads.items())[:10]:
+            block = (
+                f"[{t['date']} | {t['group']} | {t['sender']}]\n"
+                f"{t['body'][:500]}"
+            )
+            if t["replies"]:
+                replies_txt = "\n".join(
+                    f"  ↳ {r['sender']}: {r['body']}"
+                    for r in t["replies"][:5]
+                )
+                block += f"\n\nComentarios:\n{replies_txt}"
+            text_parts.append(block)
 
-        return f"Publicaciones recientes de Viva Engage (últimos {days} días):\n\n" + "\n\n---\n\n".join(posts[:10])
+            # Build reply excerpt for the sources panel
+            reply_excerpt = ""
+            if t["replies"]:
+                reply_excerpt = " | Comentarios: " + " / ".join(
+                    f"{r['sender']}: {r['body'][:80]}"
+                    for r in t["replies"][:3]
+                )
+
+            sources.append({
+                "category": "viva engage",
+                "group":    t["group"],
+                "date":     t["date"],
+                "summary":  t["sender"],
+                "url":      t["url"],
+                "excerpt":  t["body"][:250] + ("…" if len(t["body"]) > 250 else "") + reply_excerpt,
+            })
+
+        text = (
+            f"Publicaciones recientes de Viva Engage (últimos {days} días):\n\n"
+            + "\n\n---\n\n".join(text_parts)
+        )
+        return text, sources
 
     except Exception as e:
-        return f"Error al obtener publicaciones: {e}"
+        return f"Error al obtener publicaciones: {e}", []
 
 
-def _run_tool(name: str, args: dict) -> str:
+def _run_tool(name: str, args: dict) -> tuple[str, list[dict]]:
     if name == "search_knowledge_base":
-        return _tool_search_knowledge_base(args.get("query", ""))
+        return _tool_search_knowledge_base(args.get("query", "")), []
     if name == "search_people":
-        return _tool_search_people(args.get("query", ""))
+        return _tool_search_people(args.get("query", "")), []
     if name == "get_recent_viva_posts":
         return _tool_get_recent_viva_posts(
             days=args.get("days", 7),
             group_name=args.get("group_name", "")
         )
-    return f"Herramienta desconocida: {name}"
+    return f"Herramienta desconocida: {name}", []
 
 
 # ── LLM with tool-use loop ────────────────────────────────────────────────────
@@ -262,9 +306,9 @@ def _llm_answer(query: str, history: list[dict]) -> tuple[str, list[dict]]:
 
         # Execute each tool call and collect results
         for tc in msg.tool_calls:
-            name   = tc.function.name
-            args   = json.loads(tc.function.arguments or "{}")
-            result = _run_tool(name, args)
+            name        = tc.function.name
+            args        = json.loads(tc.function.arguments or "{}")
+            result, src = _run_tool(name, args)
 
             messages.append({
                 "role":         "tool",
@@ -272,11 +316,12 @@ def _llm_answer(query: str, history: list[dict]) -> tuple[str, list[dict]]:
                 "content":      result,
             })
 
-            # Track sources for knowledge base searches
+            # Sources from live Viva posts come directly from the tool
+            used_sources.extend(src)
+
+            # Sources from knowledge base: re-run FAISS to get metadata
             if name == "search_knowledge_base":
-                openai_key2 = os.environ.get("OPENAI_API_KEY", "")
-                client2     = OpenAI(api_key=openai_key2)
-                vec_resp    = client2.embeddings.create(
+                vec_resp = client.embeddings.create(
                     model="text-embedding-3-small",
                     input=[args.get("query", query)]
                 )
