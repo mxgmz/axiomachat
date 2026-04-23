@@ -1,0 +1,13 @@
+.env
+__pycache__/
+*.py[cod]
+.DS_Store
+
+# Raw data — large, don't commit
+viva_data/attachments/
+viva_data/groups.json
+viva_data/_all_messages.json
+viva_data/processed/
+
+# Keep the RAG index (needed for Vercel deployment)
+!viva_data/rag_index/

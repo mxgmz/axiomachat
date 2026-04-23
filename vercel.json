@@ -1,0 +1,12 @@
+{
+  "functions": {
+    "api/chat.py": {
+      "runtime": "python3.11",
+      "maxDuration": 30
+    }
+  },
+  "routes": [
+    { "src": "/api/chat", "dest": "/api/chat.py" },
+    { "src": "/(.*)",     "dest": "/public/$1"   }
+  ]
+}

@@ -1,0 +1,9 @@
+requests
+python-dotenv
+anthropic
+pymupdf
+python-docx
+openpyxl
+openai-whisper
+mcp
+openai
