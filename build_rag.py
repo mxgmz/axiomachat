@@ -12,7 +12,6 @@ from rank_bm25 import BM25Okapi
 
 KNOWLEDGE_BASE = Path("viva_data/processed/knowledge_base.jsonl")
 OUT_DIR = Path("viva_data/rag_index")
-KEEP_CATEGORIES = {"benefits", "hr_policy", "training", "company_news"}
 CHUNK_SIZE = 1800
 CHUNK_OVERLAP = 200
 
@@ -39,7 +38,7 @@ def main():
     with open(KNOWLEDGE_BASE, encoding="utf-8") as f:
         for line in f:
             r = json.loads(line)
-            if r.get("is_useful") and r.get("category") in KEEP_CATEGORIES:
+            if r.get("content", "").strip():  # include everything with content
                 records.append(r)
 
     print(f"Useful records: {len(records)}")
@@ -49,7 +48,7 @@ def main():
         content = rec.get("content", "").strip()
         if not content:
             continue
-        summary = rec.get("summary", "")
+        summary = rec.get("summary") or ""
         prefix = f"[{rec.get('category','').upper()} | {rec.get('group','')} | {rec.get('date','')[:10]}]\n"
         if summary:
             prefix += f"Resumen: {summary}\n\n"

@@ -36,7 +36,7 @@ def _tokenize(text: str) -> list[str]:
     return re.findall(r"[a-záéíóúüñ]+", text.lower())
 
 
-def _retrieve(query: str, top_k: int = 5) -> list[dict]:
+def _retrieve(query: str, top_k: int = 10) -> list[dict]:
     scores = _BM25.get_scores(_tokenize(query))
     top = sorted(range(len(scores)), key=lambda i: scores[i], reverse=True)[:top_k]
     return [_CHUNKS[i] for i in top if scores[i] > 0]
