@@ -1,0 +1,11 @@
+# Local data pipeline — do NOT deploy to Vercel
+requests
+python-dotenv
+anthropic
+pymupdf
+python-docx
+openpyxl
+openai-whisper
+mcp
+openai
+rank_bm25
