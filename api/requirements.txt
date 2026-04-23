@@ -1,5 +1,0 @@
-flask
-flask-cors
-rank_bm25
-anthropic
-openai

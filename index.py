@@ -4,16 +4,17 @@ import pickle
 import re
 from pathlib import Path
 
-from flask import Flask, jsonify, request, send_from_directory
+from flask import Flask, Response, jsonify, request
 from flask_cors import CORS
 
-# ── Absolute paths (safe in any working directory) ────────────────────────────
-_BASE = Path(__file__).parent.parent
+# ── Paths ─────────────────────────────────────────────────────────────────────
+_BASE = Path(__file__).parent
 _DIR  = _BASE / "viva_data" / "rag_index"
+_HTML = (_BASE / "public" / "index.html").read_text(encoding="utf-8")
 
+# ── Load BM25 index once at startup ──────────────────────────────────────────
 with open(_DIR / "chunks.json", encoding="utf-8") as f:
     _CHUNKS = json.load(f)
-
 with open(_DIR / "bm25.pkl", "rb") as f:
     _BM25 = pickle.load(f)
 
@@ -27,7 +28,7 @@ SYSTEM_PROMPT = (
 )
 
 # ── Flask app ─────────────────────────────────────────────────────────────────
-app = Flask(__name__, static_folder=str(_BASE / "public"), static_url_path="")
+app = Flask(__name__)
 CORS(app)
 
 
@@ -42,16 +43,14 @@ def _retrieve(query: str, top_k: int = 5) -> list[dict]:
 
 
 def _llm_answer(query: str, hits: list[dict]) -> str:
-    context_parts = []
-    for i, h in enumerate(hits, 1):
-        context_parts.append(
-            f"[Fuente {i} — {h['category']} | {h['group']} | {h['date']}]\n{h['text']}"
-        )
-    context = "\n\n---\n\n".join(context_parts)
+    context = "\n\n---\n\n".join(
+        f"[Fuente {i} — {h['category']} | {h['group']} | {h['date']}]\n{h['text']}"
+        for i, h in enumerate(hits, 1)
+    )
     messages = [{"role": "user", "content": f"Contexto:\n{context}\n\nPregunta: {query}"}]
 
     anthropic_key = os.environ.get("ANTHROPIC_API_KEY", "")
-    openai_key = os.environ.get("OPENAI_API_KEY", "")
+    openai_key    = os.environ.get("OPENAI_API_KEY", "")
 
     if anthropic_key.startswith("sk-ant-"):
         import anthropic
@@ -74,17 +73,17 @@ def _llm_answer(query: str, hits: list[dict]) -> str:
         )
         return resp.choices[0].message.content
 
-    return "⚠️ Configura ANTHROPIC_API_KEY o OPENAI_API_KEY en las variables de entorno."
+    return "⚠️ Configura ANTHROPIC_API_KEY o OPENAI_API_KEY en las variables de entorno de Vercel."
 
 
 @app.route("/")
 def index():
-    return send_from_directory(app.static_folder, "index.html")
+    return Response(_HTML, mimetype="text/html")
 
 
 @app.route("/api/chat", methods=["POST"])
 def chat():
-    data = request.get_json(force=True, silent=True) or {}
+    data  = request.get_json(force=True, silent=True) or {}
     query = (data.get("query") or "").strip()
 
     if not query:
@@ -105,15 +104,14 @@ def chat():
     sources = [
         {
             "category": h["category"],
-            "group": h["group"],
-            "date": h["date"],
-            "summary": h.get("summary", ""),
-            "url": h.get("message_url", ""),
-            "excerpt": h["text"][:300] + ("…" if len(h["text"]) > 300 else ""),
+            "group":    h["group"],
+            "date":     h["date"],
+            "summary":  h.get("summary", ""),
+            "url":      h.get("message_url", ""),
+            "excerpt":  h["text"][:300] + ("…" if len(h["text"]) > 300 else ""),
         }
         for h in hits
     ]
-
     return jsonify({"answer": answer, "sources": sources})
 
 
