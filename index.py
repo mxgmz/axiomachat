@@ -14,7 +14,8 @@ from openai import OpenAI
 _BASE   = Path(__file__).parent
 _DIR    = _BASE / "viva_data" / "rag_index"
 _HTML   = (_BASE / "index.html").read_text(encoding="utf-8")
-_PEOPLE = json.loads((_BASE / "viva_data" / "people.json").read_text(encoding="utf-8"))
+_people_path = _BASE / "viva_data" / "people.json"
+_PEOPLE = json.loads(_people_path.read_text(encoding="utf-8")) if _people_path.exists() else []
 
 # ── Load FAISS index + chunks ─────────────────────────────────────────────────
 with open(_DIR / "chunks.json", encoding="utf-8") as f:
