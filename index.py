@@ -424,36 +424,45 @@ def _build_image_prompt(card_type: str, user_prompt: str, person: dict | None) -
 
 def _generate_image_api(full_prompt: str, user_image_b64: str | None) -> str:
     openai_key = os.environ.get("OPENAI_API_KEY", "")
-    client = OpenAI(api_key=openai_key)
+    client     = OpenAI(api_key=openai_key)
 
-    # Build reference image list — all brand assets + optional user upload
-    ref_images: list[tuple[str, bytes, str]] = []
-    for alias, filename, mime in _BRAND_REFS:
+    # Encode brand reference images
+    ref_b64: list[tuple[str, str]] = []  # (b64, mime)
+    for _, filename, mime in _BRAND_REFS:
         path = _IMG_DIR / filename
         if path.exists():
-            ref_images.append((alias, path.read_bytes(), mime))
+            ref_b64.append((base64.b64encode(path.read_bytes()).decode(), mime))
     if user_image_b64:
-        ref_images.append(("user_reference.png", base64.b64decode(user_image_b64), "image/png"))
+        ref_b64.append((user_image_b64, "image/png"))
 
-    image_files = [(name, io.BytesIO(data), mime) for name, data, mime in ref_images]
+    if ref_b64:
+        # ── Responses API (multimodal) — model reasons on reference images first ──
+        content = [
+            {"type": "input_image", "image_url": f"data:{mime};base64,{b64}"}
+            for b64, mime in ref_b64
+        ]
+        content.append({"type": "input_text", "text": full_prompt})
 
-    if image_files:
-        resp = client.images.edit(
-            model="gpt-image-1",
-            image=image_files,
-            prompt=full_prompt,
-            n=1,
-            size="1024x1024",
-        )
-    else:
-        resp = client.images.generate(
-            model="gpt-image-1",
-            prompt=full_prompt,
-            n=1,
-            size="1024x1024",
-            quality="high",
-        )
+        try:
+            resp = client.responses.create(
+                model="gpt-4o",
+                input=[{"role": "user", "content": content}],
+                tools=[{"type": "image_generation", "quality": "high", "size": "1024x1024"}],
+            )
+            for item in resp.output:
+                if getattr(item, "type", "") == "image_generation_call":
+                    return item.result
+        except Exception:
+            pass  # fall through to classic API
 
+    # ── Classic Images API fallback (gpt-image-2) ────────────────────────────
+    resp = client.images.generate(
+        model="gpt-image-2",
+        prompt=full_prompt,
+        n=1,
+        size="1024x1024",
+        quality="high",
+    )
     return resp.data[0].b64_json
 
 
