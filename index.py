@@ -356,13 +356,37 @@ def _llm_answer(query: str, history: list[dict]) -> tuple[str, list[dict]]:
 
 # ── Image generation ─────────────────────────────────────────────────────────
 
-_TYPE_PROMPTS = {
-    "cumpleanos":   "birthday celebration card, festive balloons and confetti, warm and joyful mood",
-    "aniversario":  "work anniversary milestone card, professional achievement, years of dedication celebrated",
-    "bienvenida":   "welcome card for a new team member, warm and inviting, fresh start energy",
-    "logro":        "achievement and recognition card, celebrating success and excellence, trophy or star motif",
-    "personalizado":"custom corporate communication card",
+_IMG_DIR = _BASE / "Axioma images"
+
+# All brand reference images — ordered by relevance (social post first as clearest template)
+_BRAND_REFS = [
+    ("social_post.png",  "2247146201088_Fame 35.png",  "image/png"),
+    ("testimonial.png",  "image.png",                  "image/png"),
+    ("banner.webp",      "1200x630.png.webp",           "image/webp"),
+    ("logo.png",         "images-3.png",                "image/png"),
+]
+
+_TYPE_CONTEXTS = {
+    "cumpleanos":    ("birthday celebration",          "warm festive mood, balloons or confetti subtle elements, celebratory headline"),
+    "aniversario":   ("work anniversary milestone",    "years of achievement, professional pride, milestone number prominently displayed"),
+    "bienvenida":    ("new team member welcome",       "warm and inviting tone, fresh-start energy, open arms motif"),
+    "logro":         ("achievement recognition",       "excellence celebrated, bold success headline, star or trophy accent"),
+    "personalizado": ("custom corporate communication","flexible layout matching the message tone"),
 }
+
+_BRAND_SPEC = (
+    "EXACT BRAND IDENTITY — follow every rule:\n"
+    "• Colors: primary yellow #FADE00 (exact), black #000000, white #FFFFFF, dark gray #333333\n"
+    "• Yellow #FADE00 is used as background OR as accent highlight on key words/buttons — never as a secondary tint\n"
+    "• Typography: bold condensed sans-serif headlines (Bebas Neue style), clean Helvetica Neue for body text\n"
+    "• Logo: 'axioma.' — always lowercase, bold black, with the period, placed bottom-left or bottom-center\n"
+    "• Tagline when space allows: 'inteligencia inmobiliaria' in small regular weight below the logo\n"
+    "• Layout: strong typographic hierarchy — one dominant bold headline, supporting body copy, minimal decoration\n"
+    "• Decorative elements: thin architectural/technical line drawings, geometric curves — used sparingly in corners\n"
+    "• Style: ultra-clean, minimalist, modern Mexican architecture firm, print-ready, no gradients, no drop shadows\n"
+    "• Format: 1:1 square, exactly like their social media posts shown in the reference images"
+)
+
 
 def _find_person_for_image(prompt: str) -> dict | None:
     prompt_lower = prompt.lower()
@@ -378,23 +402,23 @@ def _find_person_for_image(prompt: str) -> dict | None:
 
 
 def _build_image_prompt(card_type: str, user_prompt: str, person: dict | None) -> str:
-    type_desc = _TYPE_PROMPTS.get(card_type, _TYPE_PROMPTS["personalizado"])
-    person_line = ""
+    type_name, type_mood = _TYPE_CONTEXTS.get(card_type, _TYPE_CONTEXTS["personalizado"])
+
+    person_block = ""
     if person:
         parts = []
-        if person.get("name"):      parts.append(f'name "{person["name"]}"')
-        if person.get("job_title"): parts.append(person["job_title"])
-        if person.get("department"):parts.append(f'from {person["department"]} department')
-        person_line = f" Feature the person: {', '.join(parts)}."
+        if person.get("name"):       parts.append(f'"{person["name"]}"')
+        if person.get("job_title"):  parts.append(person["job_title"])
+        if person.get("department"): parts.append(f'{person["department"]} dept.')
+        person_block = f"\nPERSON FEATURED: {' | '.join(parts)} — include their name prominently in the headline."
 
     return (
-        f"Create a professional {type_desc} for Axioma, a Mexican architecture and real estate company. "
-        f"Use Axioma's brand visual identity from the reference image: bright yellow background (#F5E000), "
-        f"bold black sans-serif typography, clean architectural and geometric line art elements in the corners. "
-        f"Minimalist corporate design. "
-        f"Card message or context: {user_prompt}.{person_line} "
-        f"Include 'axioma.' logotype in bold black. "
-        f"Square format, print-ready, high quality."
+        f"Create a professional {type_name} card for Axioma, a Mexican real estate project management company with 30+ years of experience.\n\n"
+        f"{_BRAND_SPEC}\n\n"
+        f"CARD TYPE: {type_name.upper()} — {type_mood}\n"
+        f"MESSAGE / CONTEXT: {user_prompt}{person_block}\n\n"
+        f"Match the reference images exactly in visual style. "
+        f"The output should be indistinguishable from Axioma's real social media posts."
     )
 
 
@@ -402,20 +426,18 @@ def _generate_image_api(full_prompt: str, user_image_b64: str | None) -> str:
     openai_key = os.environ.get("OPENAI_API_KEY", "")
     client = OpenAI(api_key=openai_key)
 
-    ref_images = []
-
-    if _BANNER_PATH.exists():
-        ref_images.append(("banner.webp", _BANNER_PATH.read_bytes(), "image/webp"))
-    if _LOGO_PATH.exists():
-        ref_images.append(("logo.png", _LOGO_PATH.read_bytes(), "image/png"))
+    # Build reference image list — all brand assets + optional user upload
+    ref_images: list[tuple[str, bytes, str]] = []
+    for alias, filename, mime in _BRAND_REFS:
+        path = _IMG_DIR / filename
+        if path.exists():
+            ref_images.append((alias, path.read_bytes(), mime))
     if user_image_b64:
-        ref_images.append(("reference.png", base64.b64decode(user_image_b64), "image/png"))
+        ref_images.append(("user_reference.png", base64.b64decode(user_image_b64), "image/png"))
 
-    if ref_images:
-        image_files = [
-            (name, io.BytesIO(data), mime)
-            for name, data, mime in ref_images
-        ]
+    image_files = [(name, io.BytesIO(data), mime) for name, data, mime in ref_images]
+
+    if image_files:
         resp = client.images.edit(
             model="gpt-image-1",
             image=image_files,
