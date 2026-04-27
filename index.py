@@ -1,3 +1,5 @@
+import base64
+import io
 import json
 import os
 import time
@@ -11,11 +13,14 @@ from flask_cors import CORS
 from openai import OpenAI
 
 # ── Paths ─────────────────────────────────────────────────────────────────────
-_BASE   = Path(__file__).parent
-_DIR    = _BASE / "viva_data" / "rag_index"
-_HTML   = (_BASE / "index.html").read_text(encoding="utf-8")
+_BASE        = Path(__file__).parent
+_DIR         = _BASE / "viva_data" / "rag_index"
+_HTML        = (_BASE / "index.html").read_text(encoding="utf-8")
+_HTML_IMG    = (_BASE / "imagenes.html").read_text(encoding="utf-8")
 _people_path = _BASE / "viva_data" / "people.json"
-_PEOPLE = json.loads(_people_path.read_text(encoding="utf-8")) if _people_path.exists() else []
+_PEOPLE      = json.loads(_people_path.read_text(encoding="utf-8")) if _people_path.exists() else []
+_BANNER_PATH = _BASE / "Axioma images" / "1200x630.png.webp"
+_LOGO_PATH   = _BASE / "Axioma images" / "images-3.png"
 
 # ── Load FAISS index + chunks ─────────────────────────────────────────────────
 with open(_DIR / "chunks.json", encoding="utf-8") as f:
@@ -349,6 +354,87 @@ def _llm_answer(query: str, history: list[dict]) -> tuple[str, list[dict]]:
     return final.choices[0].message.content or "", used_sources
 
 
+# ── Image generation ─────────────────────────────────────────────────────────
+
+_TYPE_PROMPTS = {
+    "cumpleanos":   "birthday celebration card, festive balloons and confetti, warm and joyful mood",
+    "aniversario":  "work anniversary milestone card, professional achievement, years of dedication celebrated",
+    "bienvenida":   "welcome card for a new team member, warm and inviting, fresh start energy",
+    "logro":        "achievement and recognition card, celebrating success and excellence, trophy or star motif",
+    "personalizado":"custom corporate communication card",
+}
+
+def _find_person_for_image(prompt: str) -> dict | None:
+    prompt_lower = prompt.lower()
+    best_score, best_person = 0, None
+    for p in _PEOPLE:
+        if not p.get("active"):
+            continue
+        name_words = (p.get("name") or "").lower().split()
+        score = sum(1 for w in name_words if len(w) > 3 and w in prompt_lower)
+        if score > best_score:
+            best_score, best_person = score, p
+    return best_person if best_score >= 1 else None
+
+
+def _build_image_prompt(card_type: str, user_prompt: str, person: dict | None) -> str:
+    type_desc = _TYPE_PROMPTS.get(card_type, _TYPE_PROMPTS["personalizado"])
+    person_line = ""
+    if person:
+        parts = []
+        if person.get("name"):      parts.append(f'name "{person["name"]}"')
+        if person.get("job_title"): parts.append(person["job_title"])
+        if person.get("department"):parts.append(f'from {person["department"]} department')
+        person_line = f" Feature the person: {', '.join(parts)}."
+
+    return (
+        f"Create a professional {type_desc} for Axioma, a Mexican architecture and real estate company. "
+        f"Use Axioma's brand visual identity from the reference image: bright yellow background (#F5E000), "
+        f"bold black sans-serif typography, clean architectural and geometric line art elements in the corners. "
+        f"Minimalist corporate design. "
+        f"Card message or context: {user_prompt}.{person_line} "
+        f"Include 'axioma.' logotype in bold black. "
+        f"Square format, print-ready, high quality."
+    )
+
+
+def _generate_image_api(full_prompt: str, user_image_b64: str | None) -> str:
+    openai_key = os.environ.get("OPENAI_API_KEY", "")
+    client = OpenAI(api_key=openai_key)
+
+    ref_images = []
+
+    if _BANNER_PATH.exists():
+        ref_images.append(("banner.webp", _BANNER_PATH.read_bytes(), "image/webp"))
+    if _LOGO_PATH.exists():
+        ref_images.append(("logo.png", _LOGO_PATH.read_bytes(), "image/png"))
+    if user_image_b64:
+        ref_images.append(("reference.png", base64.b64decode(user_image_b64), "image/png"))
+
+    if ref_images:
+        image_files = [
+            (name, io.BytesIO(data), mime)
+            for name, data, mime in ref_images
+        ]
+        resp = client.images.edit(
+            model="gpt-image-1",
+            image=image_files,
+            prompt=full_prompt,
+            n=1,
+            size="1024x1024",
+        )
+    else:
+        resp = client.images.generate(
+            model="gpt-image-1",
+            prompt=full_prompt,
+            n=1,
+            size="1024x1024",
+            quality="high",
+        )
+
+    return resp.data[0].b64_json
+
+
 # ── Flask app ─────────────────────────────────────────────────────────────────
 app = Flask(__name__)
 CORS(app)
@@ -362,6 +448,34 @@ def health():
 @app.route("/")
 def index():
     return Response(_HTML, mimetype="text/html")
+
+
+@app.route("/imagenes")
+def imagenes():
+    return Response(_HTML_IMG, mimetype="text/html")
+
+
+@app.route("/api/generate-image", methods=["POST"])
+def generate_image():
+    data      = request.get_json(force=True, silent=True) or {}
+    card_type = data.get("type", "personalizado")
+    prompt    = (data.get("prompt") or "").strip()
+    user_img  = data.get("image")  # base64 or null
+
+    if not prompt:
+        return jsonify({"error": "prompt requerido"}), 400
+
+    person      = _find_person_for_image(prompt)
+    full_prompt = _build_image_prompt(card_type, prompt, person)
+
+    try:
+        b64 = _generate_image_api(full_prompt, user_img)
+        return jsonify({
+            "image":  b64,
+            "person": person.get("name") if person else None,
+        })
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
 
 
 @app.route("/api/chat", methods=["POST"])
