@@ -112,10 +112,13 @@
       position: relative;
       line-height: 0;
       overflow: hidden;
+      aspect-ratio: 1;
     }
     .img-wrapper img {
       width: 100%;
+      height: 100%;
       display: block;
+      object-fit: cover;
       transition: transform .4s cubic-bezier(.22,.68,0,1.2);
     }
     .img-wrapper:hover img { transform: scale(1.02); }
@@ -513,11 +516,8 @@
     card.appendChild(meta);
     feed.appendChild(card);
 
-    // Scroll AFTER image renders — fixes the "cut in half" bug
     img.onload = () => {
-      requestAnimationFrame(() => {
-        card.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
-      });
+      requestAnimationFrame(() => scrollToBottom());
     };
     // Set src after onload is registered
     img.src = `data:image/png;base64,${b64}`;
