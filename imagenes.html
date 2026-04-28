@@ -24,6 +24,7 @@
       flex-direction: column;
       height: 100dvh;
       color: var(--black);
+      overflow: hidden;
     }
 
     /* ── Header ── */
@@ -37,7 +38,6 @@
       flex-shrink: 0;
       border-bottom: 2px solid var(--black);
     }
-
     .wordmark {
       font-family: "Bebas Neue", "Arial Black", sans-serif;
       font-size: 28px;
@@ -46,53 +46,28 @@
       line-height: 1;
       text-decoration: none;
     }
-
-    .header-divider {
-      width: 1px;
-      height: 24px;
-      background: rgba(0,0,0,.25);
-    }
-
+    .header-divider { width: 1px; height: 24px; background: rgba(0,0,0,.25); }
     .header-subtitle {
-      font-size: 12px;
-      font-weight: 600;
-      color: var(--black);
-      opacity: .6;
-      text-transform: uppercase;
-      letter-spacing: .5px;
+      font-size: 12px; font-weight: 600; color: var(--black);
+      opacity: .6; text-transform: uppercase; letter-spacing: .5px;
     }
-
-    .header-nav {
-      margin-left: auto;
-      display: flex;
-      gap: 8px;
-    }
-
+    .header-nav { margin-left: auto; display: flex; gap: 8px; }
     .nav-btn {
-      display: flex;
-      align-items: center;
-      gap: 6px;
-      background: var(--black);
-      color: var(--yellow);
-      border: none;
-      border-radius: 4px;
-      padding: 7px 14px;
-      font-size: 12px;
-      font-weight: 700;
-      font-family: inherit;
-      text-decoration: none;
-      cursor: pointer;
-      letter-spacing: .3px;
-      transition: opacity .15s;
-      white-space: nowrap;
+      display: flex; align-items: center; gap: 6px;
+      background: var(--black); color: var(--yellow);
+      border: none; border-radius: 2px;
+      padding: 7px 14px; font-size: 12px; font-weight: 700;
+      font-family: inherit; text-decoration: none; cursor: pointer;
+      transition: opacity .15s; white-space: nowrap;
     }
     .nav-btn:hover { opacity: .85; }
 
-    /* ── Feed ── */
+    /* ── Feed — min-height:0 is critical for flex overflow scroll ── */
     #feed {
       flex: 1;
+      min-height: 0;
       overflow-y: auto;
-      padding: 28px 16px;
+      padding: 28px 16px 40px;
       display: flex;
       flex-direction: column;
       gap: 24px;
@@ -101,32 +76,18 @@
 
     /* ── Intro ── */
     .intro {
-      align-self: center;
-      text-align: center;
-      background: var(--white);
-      border: 1.5px solid var(--gray-200);
-      border-radius: 2px;
-      padding: 36px 40px;
-      max-width: 520px;
+      align-self: center; text-align: center;
+      background: var(--white); border: 1.5px solid var(--gray-200);
+      border-radius: 2px; padding: 36px 40px; max-width: 520px;
     }
-
     .intro-logo {
       font-family: "Bebas Neue", "Arial Black", sans-serif;
-      font-size: 42px;
-      color: var(--black);
-      line-height: 1;
-      margin-bottom: 4px;
+      font-size: 42px; color: var(--black); line-height: 1; margin-bottom: 4px;
     }
-
     .intro-tag {
-      font-size: 11px;
-      font-weight: 600;
-      text-transform: uppercase;
-      letter-spacing: 1px;
-      color: var(--gray-500);
-      margin-bottom: 20px;
+      font-size: 11px; font-weight: 600; text-transform: uppercase;
+      letter-spacing: 1px; color: var(--gray-500); margin-bottom: 20px;
     }
-
     .intro h2 { font-size: 17px; font-weight: 700; margin-bottom: 8px; }
     .intro p  { font-size: 13px; color: var(--gray-500); line-height: 1.6; }
 
@@ -139,51 +100,79 @@
       overflow: hidden;
       max-width: 540px;
       width: 100%;
+      animation: cardIn .35s cubic-bezier(.22,.68,0,1.2) both;
     }
-    .img-card img { width: 100%; display: block; }
-    .img-card-meta {
-      padding: 12px 16px;
+    @keyframes cardIn {
+      from { opacity: 0; transform: translateY(16px); }
+      to   { opacity: 1; transform: translateY(0); }
+    }
+
+    /* Image with hover overlay */
+    .img-wrapper {
+      position: relative;
+      line-height: 0;
+      overflow: hidden;
+    }
+    .img-wrapper img {
+      width: 100%;
+      display: block;
+      transition: transform .4s cubic-bezier(.22,.68,0,1.2);
+    }
+    .img-wrapper:hover img { transform: scale(1.02); }
+
+    .img-overlay {
+      position: absolute;
+      inset: 0;
+      background: rgba(0,0,0,0);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: background .25s;
+    }
+    .img-wrapper:hover .img-overlay { background: rgba(0,0,0,.38); }
+
+    .dl-hover-btn {
+      background: var(--yellow);
+      color: var(--black);
+      border: none;
+      border-radius: 2px;
+      padding: 11px 22px;
+      font-size: 13px;
+      font-weight: 700;
+      font-family: inherit;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      gap: 7px;
+      opacity: 0;
+      transform: translateY(10px) scale(.95);
+      transition: opacity .22s, transform .22s;
+      box-shadow: 0 4px 16px rgba(0,0,0,.25);
+    }
+    .img-wrapper:hover .dl-hover-btn {
+      opacity: 1;
+      transform: translateY(0) scale(1);
+    }
+    .dl-hover-btn:active { transform: scale(.96); }
+
+    /* Meta bar */
+    .img-meta {
+      padding: 10px 14px;
       display: flex;
       align-items: center;
       gap: 10px;
       border-top: 1.5px solid var(--gray-200);
     }
     .type-badge {
-      background: var(--yellow);
-      color: var(--black);
-      border-radius: 2px;
-      padding: 4px 10px;
-      font-size: 11px;
-      font-weight: 700;
-      white-space: nowrap;
-      text-transform: uppercase;
-      letter-spacing: .4px;
+      background: var(--yellow); color: var(--black);
+      border-radius: 2px; padding: 3px 9px;
+      font-size: 11px; font-weight: 700;
+      white-space: nowrap; text-transform: uppercase; letter-spacing: .4px;
     }
-    .img-prompt {
-      flex: 1;
-      font-size: 12.5px;
-      color: var(--gray-500);
-      overflow: hidden;
-      text-overflow: ellipsis;
-      white-space: nowrap;
+    .img-prompt-text {
+      flex: 1; font-size: 12px; color: var(--gray-500);
+      overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
     }
-    .dl-btn {
-      background: var(--black);
-      color: var(--yellow);
-      border: none;
-      border-radius: 2px;
-      padding: 7px 14px;
-      font-size: 12px;
-      font-weight: 700;
-      font-family: inherit;
-      cursor: pointer;
-      white-space: nowrap;
-      display: flex;
-      align-items: center;
-      gap: 5px;
-      transition: opacity .15s;
-    }
-    .dl-btn:hover { opacity: .85; }
 
     /* ── Skeleton ── */
     .skeleton-card {
@@ -194,26 +183,31 @@
       overflow: hidden;
       max-width: 540px;
       width: 100%;
+      animation: cardIn .35s cubic-bezier(.22,.68,0,1.2) both;
     }
     .skeleton-img {
       width: 100%;
       aspect-ratio: 1;
-      background: var(--gray-50);
+      background: linear-gradient(110deg, var(--gray-50) 30%, #eeecea 50%, var(--gray-50) 70%);
+      background-size: 200% 100%;
+      animation: shimmer 1.6s ease-in-out infinite;
       display: flex;
       flex-direction: column;
       align-items: center;
       justify-content: center;
-      gap: 12px;
+      gap: 14px;
       color: var(--gray-500);
       font-size: 13px;
       font-weight: 500;
     }
+    @keyframes shimmer { to { background-position: -200% 0; } }
+
     .spinner {
-      width: 28px; height: 28px;
+      width: 30px; height: 30px;
       border: 2.5px solid var(--gray-200);
       border-top-color: var(--black);
       border-radius: 50%;
-      animation: spin .8s linear infinite;
+      animation: spin .75s linear infinite;
     }
     @keyframes spin { to { transform: rotate(360deg); } }
 
@@ -221,157 +215,92 @@
     #input-bar {
       background: var(--white);
       border-top: 2px solid var(--black);
-      padding: 14px 16px;
+      padding: 12px 16px;
       display: flex;
       flex-direction: column;
       gap: 10px;
       flex-shrink: 0;
     }
 
-    /* Top row: type pills + model toggle */
-    .top-row {
-      display: flex;
-      align-items: center;
-      gap: 12px;
-    }
+    .top-row { display: flex; align-items: center; gap: 12px; }
 
     .type-pills {
-      display: flex;
-      gap: 8px;
-      overflow-x: auto;
-      flex: 1;
-      padding-bottom: 2px;
-      scrollbar-width: none;
+      display: flex; gap: 8px; overflow-x: auto;
+      flex: 1; padding-bottom: 2px; scrollbar-width: none;
     }
     .type-pills::-webkit-scrollbar { display: none; }
 
-    /* Model toggle */
+    .pill {
+      background: var(--white); color: var(--black);
+      border: 1.5px solid var(--gray-200); border-radius: 2px;
+      padding: 6px 13px; font-size: 12.5px; font-weight: 600;
+      font-family: inherit; cursor: pointer; white-space: nowrap;
+      flex-shrink: 0; transition: all .12s;
+    }
+    .pill:hover { border-color: var(--black); }
+    .pill.active { background: var(--yellow); border-color: var(--black); }
+
     .model-toggle {
-      display: flex;
-      border: 1.5px solid var(--black);
-      border-radius: 2px;
-      overflow: hidden;
-      flex-shrink: 0;
+      display: flex; border: 1.5px solid var(--black);
+      border-radius: 2px; overflow: hidden; flex-shrink: 0;
     }
     .model-btn {
-      background: var(--white);
-      color: var(--black);
-      border: none;
-      padding: 6px 12px;
-      font-size: 11px;
-      font-weight: 700;
-      font-family: inherit;
-      cursor: pointer;
-      letter-spacing: .3px;
-      transition: all .12s;
-      white-space: nowrap;
+      background: var(--white); color: var(--black); border: none;
+      padding: 6px 11px; font-size: 11px; font-weight: 700;
+      font-family: inherit; cursor: pointer; transition: all .12s; white-space: nowrap;
     }
     .model-btn + .model-btn { border-left: 1.5px solid var(--black); }
     .model-btn:hover { background: var(--gray-50); }
     .model-btn.active { background: var(--black); color: var(--yellow); }
 
-    .pill {
-      background: var(--white);
-      color: var(--black);
-      border: 1.5px solid var(--gray-200);
-      border-radius: 2px;
-      padding: 6px 14px;
-      font-size: 12.5px;
-      font-weight: 600;
-      font-family: inherit;
-      cursor: pointer;
-      white-space: nowrap;
-      flex-shrink: 0;
-      transition: all .12s;
-    }
-    .pill:hover { border-color: var(--black); }
-    .pill.active {
-      background: var(--yellow);
-      border-color: var(--black);
-      color: var(--black);
-    }
-
-    /* Input row */
     .input-row { display: flex; gap: 8px; align-items: flex-end; }
 
     #prompt {
-      flex: 1;
-      border: 1.5px solid var(--gray-200);
-      border-radius: 2px;
-      padding: 10px 16px;
-      font-size: 14px;
-      font-family: inherit;
-      outline: none;
-      resize: none;
-      line-height: 1.5;
-      max-height: 100px;
-      background: var(--gray-50);
-      transition: border-color .15s;
+      flex: 1; border: 1.5px solid var(--gray-200); border-radius: 2px;
+      padding: 10px 16px; font-size: 14px; font-family: inherit;
+      outline: none; resize: none; line-height: 1.5; max-height: 100px;
+      background: var(--gray-50); transition: border-color .15s, background .15s;
     }
     #prompt:focus { border-color: var(--black); background: var(--white); }
 
     .icon-btn {
       width: 44px; height: 44px;
-      border: 1.5px solid var(--gray-200);
-      background: var(--white);
-      border-radius: 2px;
-      cursor: pointer;
-      display: grid; place-items: center;
-      flex-shrink: 0;
-      transition: all .12s;
-      color: var(--gray-500);
+      border: 1.5px solid var(--gray-200); background: var(--white);
+      border-radius: 2px; cursor: pointer; display: grid; place-items: center;
+      flex-shrink: 0; transition: all .12s; color: var(--gray-500);
     }
     .icon-btn:hover { border-color: var(--black); color: var(--black); }
     .icon-btn.has-image { border-color: var(--black); background: var(--yellow); color: var(--black); }
 
     #gen-btn {
       width: 44px; height: 44px;
-      background: var(--black);
-      color: var(--yellow);
-      border: none;
-      border-radius: 2px;
-      cursor: pointer;
-      display: grid; place-items: center;
-      flex-shrink: 0;
+      background: var(--black); color: var(--yellow);
+      border: none; border-radius: 2px; cursor: pointer;
+      display: grid; place-items: center; flex-shrink: 0;
       transition: opacity .15s, transform .1s;
     }
     #gen-btn:hover  { opacity: .85; }
     #gen-btn:active { transform: scale(.93); }
     #gen-btn:disabled { background: var(--gray-200); color: var(--gray-500); cursor: default; }
 
-    /* Preview chip */
     #img-preview {
-      display: none;
-      align-items: center;
-      gap: 8px;
-      background: var(--yellow);
-      border: 1.5px solid var(--black);
-      border-radius: 2px;
-      padding: 6px 10px;
-      font-size: 12px;
-      font-weight: 600;
-      color: var(--black);
+      display: none; align-items: center; gap: 8px;
+      background: var(--yellow); border: 1.5px solid var(--black);
+      border-radius: 2px; padding: 6px 10px;
+      font-size: 12px; font-weight: 600; color: var(--black);
     }
     #img-preview.show { display: flex; }
-    #img-preview img { width: 30px; height: 30px; object-fit: cover; border-radius: 2px; border: 1px solid var(--black); }
+    #img-preview img { width: 30px; height: 30px; object-fit: cover; border-radius: 2px; }
     #remove-img {
       background: none; border: none; cursor: pointer;
-      color: var(--black); font-size: 18px; line-height: 1; padding: 0 2px;
-      margin-left: auto;
+      color: var(--black); font-size: 18px; line-height: 1; margin-left: auto;
     }
 
-    /* Error */
     .err-card {
-      align-self: center;
-      background: var(--white);
-      border: 1.5px solid #d00000;
-      border-radius: 2px;
-      padding: 14px 18px;
-      color: #d00000;
-      font-size: 13px;
-      font-weight: 500;
-      max-width: 540px;
-      width: 100%;
+      align-self: center; background: var(--white);
+      border: 1.5px solid #d00000; border-radius: 2px;
+      padding: 14px 18px; color: #d00000;
+      font-size: 13px; font-weight: 500; max-width: 540px; width: 100%;
     }
 
     @media (max-width: 540px) {
@@ -402,7 +331,7 @@
     <div class="intro-logo">axioma.</div>
     <div class="intro-tag">inteligencia inmobiliaria</div>
     <h2>Generador de Imágenes</h2>
-    <p>Crea tarjetas con la identidad visual de Axioma. Menciona el nombre de un colaborador y lo buscaremos en el directorio. Puedes subir una imagen de referencia adicional.</p>
+    <p>Crea tarjetas con la identidad visual de Axioma. Menciona el nombre de un colaborador y lo buscaremos en el directorio automáticamente.</p>
   </div>
 </div>
 
@@ -446,14 +375,22 @@
 </div>
 
 <script>
-  const feed    = document.getElementById('feed');
+  const feed     = document.getElementById('feed');
   const promptEl = document.getElementById('prompt');
-  const genBtn  = document.getElementById('gen-btn');
+  const genBtn   = document.getElementById('gen-btn');
   const uploadBtn = document.getElementById('upload-btn');
 
   let selectedType  = 'cumpleanos';
   let selectedModel = 'gpt-image-1';
   let uploadedImageB64 = null;
+
+  const TYPE_LABELS = {
+    cumpleanos:   '🎂 Cumpleaños',
+    aniversario:  '🎉 Aniversario',
+    bienvenida:   '👋 Bienvenida',
+    logro:        '🏆 Logro',
+    personalizado:'✦ Personalizado',
+  };
 
   document.querySelectorAll('.pill').forEach(pill => {
     pill.addEventListener('click', () => {
@@ -506,18 +443,22 @@
     if (el) el.remove();
   }
 
-  const TYPE_LABELS = {
-    cumpleanos: '🎂 CUMPLEAÑOS', aniversario: '🎉 ANIVERSARIO',
-    bienvenida: '👋 BIENVENIDA', logro: '🏆 LOGRO', personalizado: '✦ PERSONALIZADO'
-  };
+  function scrollToBottom() {
+    feed.scrollTo({ top: feed.scrollHeight, behavior: 'smooth' });
+  }
 
   function addSkeleton() {
     removeIntro();
     const card = document.createElement('div');
     card.className = 'skeleton-card';
-    card.innerHTML = `<div class="skeleton-img"><div class="spinner"></div><span>Generando imagen…</span></div>`;
+    card.innerHTML = `
+      <div class="skeleton-img">
+        <div class="spinner"></div>
+        <span>Generando imagen…</span>
+      </div>`;
     feed.appendChild(card);
-    feed.scrollTop = feed.scrollHeight;
+    // Scroll after paint so layout is complete
+    requestAnimationFrame(() => scrollToBottom());
     return card;
   }
 
@@ -525,25 +466,25 @@
     const card = document.createElement('div');
     card.className = 'img-card';
 
+    // Image with hover overlay
+    const wrapper = document.createElement('div');
+    wrapper.className = 'img-wrapper';
+
     const img = document.createElement('img');
-    img.src = `data:image/png;base64,${b64}`;
     img.alt = promptText;
 
-    const meta = document.createElement('div');
-    meta.className = 'img-card-meta';
-
-    const badge = document.createElement('span');
-    badge.className = 'type-badge';
-    badge.textContent = TYPE_LABELS[type] || type;
-
-    const label = document.createElement('span');
-    label.className = 'img-prompt';
-    label.title = promptText;
-    label.textContent = promptText;
+    const overlay = document.createElement('div');
+    overlay.className = 'img-overlay';
 
     const dlBtn = document.createElement('button');
-    dlBtn.className = 'dl-btn';
-    dlBtn.innerHTML = `<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg> Descargar`;
+    dlBtn.className = 'dl-hover-btn';
+    dlBtn.innerHTML = `
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+        <polyline points="7 10 12 15 17 10"/>
+        <line x1="12" y1="15" x2="12" y2="3"/>
+      </svg>
+      Descargar`;
     dlBtn.onclick = () => {
       const a = document.createElement('a');
       a.href = `data:image/png;base64,${b64}`;
@@ -551,33 +492,68 @@
       a.click();
     };
 
+    overlay.appendChild(dlBtn);
+    wrapper.appendChild(img);
+    wrapper.appendChild(overlay);
+
+    // Meta bar
+    const meta = document.createElement('div');
+    meta.className = 'img-meta';
+    const badge = document.createElement('span');
+    badge.className = 'type-badge';
+    badge.textContent = TYPE_LABELS[type] || type;
+    const label = document.createElement('span');
+    label.className = 'img-prompt-text';
+    label.title = promptText;
+    label.textContent = promptText;
     meta.appendChild(badge);
     meta.appendChild(label);
-    meta.appendChild(dlBtn);
-    card.appendChild(img);
+
+    card.appendChild(wrapper);
     card.appendChild(meta);
     feed.appendChild(card);
-    feed.scrollTop = feed.scrollHeight;
+
+    // Scroll AFTER image renders — fixes the "cut in half" bug
+    img.onload = () => {
+      requestAnimationFrame(() => {
+        card.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+      });
+    };
+    // Set src after onload is registered
+    img.src = `data:image/png;base64,${b64}`;
+  }
+
+  function addError(msg) {
+    const err = document.createElement('div');
+    err.className = 'err-card';
+    err.textContent = msg;
+    feed.appendChild(err);
+    requestAnimationFrame(() => scrollToBottom());
   }
 
   async function generate() {
     const text = promptEl.value.trim();
     if (!text || genBtn.disabled) return;
+
     genBtn.disabled = true;
     const skeleton = addSkeleton();
+
     try {
       const res = await fetch('/api/generate-image', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ type: selectedType, prompt: text, image: uploadedImageB64 || null, model: selectedModel }),
+        body: JSON.stringify({
+          type:  selectedType,
+          prompt: text,
+          image: uploadedImageB64 || null,
+          model: selectedModel,
+        }),
       });
       const data = await res.json();
       skeleton.remove();
+
       if (data.error) {
-        const err = document.createElement('div');
-        err.className = 'err-card';
-        err.textContent = `Error: ${data.error}`;
-        feed.appendChild(err);
+        addError(`Error: ${data.error}`);
       } else {
         addImageCard(data.image, selectedType, text);
         promptEl.value = '';
@@ -586,10 +562,7 @@
       }
     } catch {
       skeleton.remove();
-      const err = document.createElement('div');
-      err.className = 'err-card';
-      err.textContent = 'Error de conexión. Intenta de nuevo.';
-      feed.appendChild(err);
+      addError('Error de conexión. Intenta de nuevo.');
     } finally {
       genBtn.disabled = false;
       promptEl.focus();
