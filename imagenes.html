@@ -228,15 +228,47 @@
       flex-shrink: 0;
     }
 
-    /* Type pills */
+    /* Top row: type pills + model toggle */
+    .top-row {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
     .type-pills {
       display: flex;
       gap: 8px;
       overflow-x: auto;
+      flex: 1;
       padding-bottom: 2px;
       scrollbar-width: none;
     }
     .type-pills::-webkit-scrollbar { display: none; }
+
+    /* Model toggle */
+    .model-toggle {
+      display: flex;
+      border: 1.5px solid var(--black);
+      border-radius: 2px;
+      overflow: hidden;
+      flex-shrink: 0;
+    }
+    .model-btn {
+      background: var(--white);
+      color: var(--black);
+      border: none;
+      padding: 6px 12px;
+      font-size: 11px;
+      font-weight: 700;
+      font-family: inherit;
+      cursor: pointer;
+      letter-spacing: .3px;
+      transition: all .12s;
+      white-space: nowrap;
+    }
+    .model-btn + .model-btn { border-left: 1.5px solid var(--black); }
+    .model-btn:hover { background: var(--gray-50); }
+    .model-btn.active { background: var(--black); color: var(--yellow); }
 
     .pill {
       background: var(--white);
@@ -375,12 +407,18 @@
 </div>
 
 <div id="input-bar">
-  <div class="type-pills">
-    <button class="pill active" data-type="cumpleanos">🎂 Cumpleaños</button>
-    <button class="pill" data-type="aniversario">🎉 Aniversario</button>
-    <button class="pill" data-type="bienvenida">👋 Bienvenida</button>
-    <button class="pill" data-type="logro">🏆 Logro</button>
-    <button class="pill" data-type="personalizado">✦ Personalizado</button>
+  <div class="top-row">
+    <div class="type-pills">
+      <button class="pill active" data-type="cumpleanos">🎂 Cumpleaños</button>
+      <button class="pill" data-type="aniversario">🎉 Aniversario</button>
+      <button class="pill" data-type="bienvenida">👋 Bienvenida</button>
+      <button class="pill" data-type="logro">🏆 Logro</button>
+      <button class="pill" data-type="personalizado">✦ Personalizado</button>
+    </div>
+    <div class="model-toggle">
+      <button class="model-btn active" data-model="gpt-image-1">Image 1</button>
+      <button class="model-btn" data-model="gpt-image-2">Image 2 ✦</button>
+    </div>
   </div>
 
   <div id="img-preview">
@@ -412,7 +450,8 @@
   const genBtn  = document.getElementById('gen-btn');
   const uploadBtn = document.getElementById('upload-btn');
 
-  let selectedType = 'cumpleanos';
+  let selectedType  = 'cumpleanos';
+  let selectedModel = 'gpt-image-1';
   let uploadedImageB64 = null;
 
   document.querySelectorAll('.pill').forEach(pill => {
@@ -420,6 +459,14 @@
       document.querySelectorAll('.pill').forEach(p => p.classList.remove('active'));
       pill.classList.add('active');
       selectedType = pill.dataset.type;
+    });
+  });
+
+  document.querySelectorAll('.model-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      document.querySelectorAll('.model-btn').forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+      selectedModel = btn.dataset.model;
     });
   });
 
@@ -521,7 +568,7 @@
       const res = await fetch('/api/generate-image', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ type: selectedType, prompt: text, image: uploadedImageB64 || null }),
+        body: JSON.stringify({ type: selectedType, prompt: text, image: uploadedImageB64 || null, model: selectedModel }),
       });
       const data = await res.json();
       skeleton.remove();

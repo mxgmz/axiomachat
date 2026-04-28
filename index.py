@@ -422,7 +422,7 @@ def _build_image_prompt(card_type: str, user_prompt: str, person: dict | None) -
     )
 
 
-def _generate_image_api(full_prompt: str, user_image_b64: str | None) -> str:
+def _generate_image_api(full_prompt: str, user_image_b64: str | None, model: str = "gpt-image-1") -> str:
     openai_key = os.environ.get("OPENAI_API_KEY", "")
     client     = OpenAI(api_key=openai_key)
 
@@ -435,14 +435,13 @@ def _generate_image_api(full_prompt: str, user_image_b64: str | None) -> str:
     if user_image_b64:
         ref_b64.append((user_image_b64, "image/png"))
 
-    if ref_b64:
-        # ── Responses API (multimodal) — model reasons on reference images first ──
+    if model == "gpt-image-2" and ref_b64:
+        # ── Responses API (multimodal) — gpt-image-2 reasons on references first ──
         content = [
             {"type": "input_image", "image_url": f"data:{mime};base64,{b64}"}
             for b64, mime in ref_b64
         ]
         content.append({"type": "input_text", "text": full_prompt})
-
         try:
             resp = client.responses.create(
                 model="gpt-4o",
@@ -455,9 +454,9 @@ def _generate_image_api(full_prompt: str, user_image_b64: str | None) -> str:
         except Exception:
             pass  # fall through to classic API
 
-    # ── Classic Images API fallback (gpt-image-2) ────────────────────────────
+    # ── Classic Images API (gpt-image-1 default, gpt-image-2 fallback) ───────
     resp = client.images.generate(
-        model="gpt-image-2",
+        model=model,
         prompt=full_prompt,
         n=1,
         size="1024x1024",
@@ -491,7 +490,10 @@ def generate_image():
     data      = request.get_json(force=True, silent=True) or {}
     card_type = data.get("type", "personalizado")
     prompt    = (data.get("prompt") or "").strip()
-    user_img  = data.get("image")  # base64 or null
+    user_img  = data.get("image")
+    model     = data.get("model", "gpt-image-1")
+    if model not in ("gpt-image-1", "gpt-image-2"):
+        model = "gpt-image-1"
 
     if not prompt:
         return jsonify({"error": "prompt requerido"}), 400
@@ -500,7 +502,7 @@ def generate_image():
     full_prompt = _build_image_prompt(card_type, prompt, person)
 
     try:
-        b64 = _generate_image_api(full_prompt, user_img)
+        b64 = _generate_image_api(full_prompt, user_img, model)
         return jsonify({
             "image":  b64,
             "person": person.get("name") if person else None,
