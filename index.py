@@ -422,7 +422,69 @@ def _build_image_prompt(card_type: str, user_prompt: str, person: dict | None) -
     )
 
 
+_RUNPOD_BASE = "https://api.runpod.ai/v2/google-nano-banana-2-edit"
+
+def _generate_nano_banana(full_prompt: str, user_image_b64: str | None) -> str:
+    api_key = os.environ.get("RUNPOD_API_KEY", "")
+    if not api_key:
+        raise RuntimeError("RUNPOD_API_KEY no configurada")
+
+    headers = {
+        "Content-Type": "application/json",
+        "Authorization": f"Bearer {api_key}",
+    }
+    payload: dict = {
+        "input": {
+            "prompt":                full_prompt,
+            "resolution":            "1k",
+            "output_format":         "png",
+            "enable_safety_checker": True,
+        }
+    }
+    if user_image_b64:
+        payload["input"]["image"] = user_image_b64
+
+    # Submit job
+    r = requests.post(f"{_RUNPOD_BASE}/run", json=payload, headers=headers, timeout=30)
+    r.raise_for_status()
+    job = r.json()
+    job_id = job.get("id")
+    if not job_id:
+        raise RuntimeError(f"RunPod no devolvió job ID: {job}")
+
+    # Poll until complete (max 120s)
+    for _ in range(60):
+        time.sleep(2)
+        r = requests.get(f"{_RUNPOD_BASE}/status/{job_id}", headers=headers, timeout=15)
+        r.raise_for_status()
+        status = r.json()
+        state  = status.get("status", "")
+
+        if state == "COMPLETED":
+            output = status.get("output", {})
+            # Output can be base64 string, list, or dict with "image" key
+            if isinstance(output, str):
+                return output
+            if isinstance(output, list) and output:
+                item = output[0]
+                return item if isinstance(item, str) else item.get("image", item.get("b64_json", ""))
+            if isinstance(output, dict):
+                for key in ("image", "b64_json", "images"):
+                    val = output.get(key)
+                    if val:
+                        return val[0] if isinstance(val, list) else val
+            raise RuntimeError(f"Formato de output desconocido: {output}")
+
+        if state in ("FAILED", "CANCELLED"):
+            raise RuntimeError(f"Job RunPod {state}: {status.get('error', '')}")
+
+    raise RuntimeError("RunPod job timeout después de 120s")
+
+
 def _generate_image_api(full_prompt: str, user_image_b64: str | None, model: str = "gpt-image-1") -> str:
+    if model == "nano-banana-2":
+        return _generate_nano_banana(full_prompt, user_image_b64)
+
     openai_key = os.environ.get("OPENAI_API_KEY", "")
     client     = OpenAI(api_key=openai_key)
 
@@ -492,7 +554,7 @@ def generate_image():
     prompt    = (data.get("prompt") or "").strip()
     user_img  = data.get("image")
     model     = data.get("model", "gpt-image-1")
-    if model not in ("gpt-image-1", "gpt-image-2"):
+    if model not in ("gpt-image-1", "gpt-image-2", "nano-banana-2"):
         model = "gpt-image-1"
 
     if not prompt:
