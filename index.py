@@ -433,16 +433,23 @@ def _generate_nano_banana(full_prompt: str, user_image_b64: str | None) -> str:
         "Content-Type": "application/json",
         "Authorization": f"Bearer {api_key}",
     }
+    # images field is required — use user upload or fall back to Axioma banner
+    if user_image_b64:
+        input_image = user_image_b64
+    elif _BANNER_PATH.exists():
+        input_image = base64.b64encode(_BANNER_PATH.read_bytes()).decode()
+    else:
+        input_image = base64.b64encode((_IMG_DIR / "logo.png").read_bytes()).decode()
+
     payload: dict = {
         "input": {
             "prompt":                full_prompt,
+            "images":                [input_image],
             "resolution":            "1k",
             "output_format":         "png",
             "enable_safety_checker": True,
         }
     }
-    if user_image_b64:
-        payload["input"]["image"] = user_image_b64
 
     # Submit job
     r = requests.post(f"{_RUNPOD_BASE}/run", json=payload, headers=headers, timeout=30)
